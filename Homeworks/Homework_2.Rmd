@@ -1,0 +1,362 @@
+---
+title: "Homework 2 assignment"
+author: "Bassel MASRI"
+date: "1/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+rm(list=ls())
+library(fda)
+```
+
+# 1. B-Splines
+
+Generating and plotting B spline basis of range $[0,1]$ and a number of basis functions set to 23
+
+```{r, fig.cap="B-splines of range [0,1], order 4 and a 23 basis", fig.align='center'}
+#-- set number of basis and generate 
+M=23
+basis = create.bspline.basis(c(0,1), nbasis = M, norder = 4)
+
+#-- plot the generated basis
+plot(basis)
+```
+
+Now that we constructed and plotted the B-spline basis, we will derivate a few times the function to study its effect on smoothing the basis:
+
+```{r, fig.align="center", fig.width=8, fig.height=10}
+#-- define accuracy step and 
+step = .0004
+order = seq(1,3)
+par(mfrow=c(3,1))
+for (i in seq_along(order)){
+  deriv = eval.basis(seq(0, 1, by=step), basis, Lfdobj= order[i])
+  matplot(x=seq(0, 1, by=step),y=deriv,type='l', main = paste("Derivative of order", order[i]))
+}
+```
+
+As we can see from the plots above, with higher orders of derivatives we loose curve smoothness.
+
+# 2. Brownian bridge
+
+ a. Simulation of 50 realizations of the Brownian bridge defined in the formula below : 
+ 
+$$
+B(t) = W(t) - tW(1) \text{ and } t \in [0,1]
+$$
+With $W(t)$ known as the Wiener process.
+
+```{r, fig.align="center", fig.cap="50 realizations of Brownian Bridges"}
+#-- Simulation an independent sample of a Brownian bridge over an equidistant grid with monte carlo sample size of 50
+set.seed(123)
+n=2000
+MC=50
+t=matrix(seq(0,1,by=1/n),nrow=1)
+ZZ=matrix(rnorm(n*MC),ncol=n)/sqrt(n)
+
+#-- Simulating Brownian Bridge that starts from zero 
+ZeC=matrix(rep(0,MC),ncol=1)
+BB=cbind(ZeC,t(apply(ZZ,1,cumsum)))-matrix(apply(ZZ,1,sum),ncol=1)%*%t 
+
+#-- Ploting the first 10 trajectories
+plot(t,BB[1,],type='l',ylim=c(min(BB),max(BB)),xlab="",ylab="") 
+for(i in 2:10){
+  lines(t,BB[i,],type='l',col=i)
+} 
+```
+
+ b. Calculate the point-wise mean and SD and add them to the plot.
+
+```{r, fig.align="center", fig.width=12, fig.height=6}
+#-- transform data into a functional data object and smooth it according to a b-spline basis
+my_basis = create.bspline.basis(rangeval=c(0,1),norder=4,nbasis=200)
+bridge_fd = Data2fd(seq(0,1,length=(n+1)),t(BB),basisobj = my_basis)
+
+#-- compute point-wise mean
+pt_mean = mean.fd(bridge_fd)
+
+#-- compute point-wise sd 
+pt_sd = sd.fd(bridge_fd)
+
+#-- Ploting the smoothed first 10 trajectories with point-wise mean and
+plot(bridge_fd[1,], ylim=c(min(BB),max(BB)))
+for(i in 2:10){
+  lines(bridge_fd[i,],type='l',col=i)
+}
+lines(pt_mean, col = "darkblue", lwd = 3)
+lines(pt_sd, col = "darkred", lwd = 3)
+legend(0,1.2, c("point-wise mu", "point-wise sd"),col=c("darkblue", "darkred"), lwd = 3) 
+```
+
+ c. Compute 95% point-wise confidence intervals for the mean function.
+
+```{r}
+#-- create upper and lower SE bouds
+SE_hat_U = fd(basisobj=my_basis)
+SE_hat_L = fd(basisobj=my_basis) 
+
+#-- use the formula in the course to compute the coefs
+SE_hat_U$coefs=2*pt_sd$coefs/sqrt(n) + pt_mean$coefs
+SE_hat_L$coefs= -2*pt_sd$coefs/sqrt(n) + pt_mean$coefs
+
+#-- plot results
+plot(pt_mean, ylim=c(-0.15, 0.13), lwd = 2)
+lines(SE_hat_L,col='darkred',lty=2)
+lines(SE_hat_U,col='darkred',lty=2)
+```
+
+ d. Graph the perspective and contour plots of the sample covariance function
+ 
+```{r}
+#-- plot the covariance function surface
+Chat = var.fd(bridge_fd)
+eval_times<-seq(0,1,length=100)
+Chat_matrix<-eval.bifd(eval_times,eval_times,Chat)
+
+#-- Perspective Plot
+persp(eval_times,eval_times,Chat_matrix)
+
+#-- Contour Plot
+contour(eval_times,eval_times,Chat_matrix)
+```
+
+ e. Perform FPC and plot the first four EFPC
+```{r, fig.align="center", fig.width=12, fig.height=4}
+#-- Perform FPCA (four components) on the smoothed data
+bridge_fpca = pca.fd(bridge_fd, nharm = 4)
+
+#-- get variability levels of each PC
+par(mfrow = (c(1,2)))
+b = bridge_fpca$varprop
+plot(b, type = "b", lwd = 2, 
+     col = "steelblue", 
+     xlab = "Number of principal components", 
+     ylab = "Variability explained", main = "Variability against number of FPC")
+
+#-- get cumulative variability
+c = cumsum(bridge_fpca$varprop)
+plot(c, type = "b", lwd = 2, 
+     col = "steelblue", 
+     xlab = "Number of principal components", 
+     ylab = "Variability explained", main = "Variability against number of FPC")
+```
+
+```{r, fig.align="center", fig.cap="Plot that represents the four principal components of the Brownian Bridge", fig.width=7, fig.height=4.5}
+#-- plotting the principal components
+plot(bridge_fpca$harmonics, main = "Principal components")
+```
+
+We see from the plot above that the first component explains about 55% of the variability, whereas the second captures around 20%. Expectedly, the last two components do not capture much of the variability. 
+
+# 3. Diffusion Tensor imaging
+
+```{r}
+library(refund)
+data("DTI")
+Y = na.omit(DTI$cca) #for missing values
+N = dim(Y)[1]
+M = dim(Y)[2]
+names(DTI)
+```
+
+a. 
+
+```{r}
+#-- set number of basis and generate it
+basis = create.bspline.basis(c(1,M), nbasis = 10, norder = 4)
+
+#-- plot the generated basis
+Y_fd = Data2fd(1:M,t(Y),basis)
+plot(Y_fd)
+```
+
+b.
+
+```{r}
+#-- compute point-wise mean
+pt_mean = mean.fd(Y_fd)
+
+#-- compute point-wise sd 
+pt_sd = sd.fd(Y_fd)
+
+#-- Ploting the first 30 smoothed trajectories with point-wise mean and sd
+plot(Y_fd[1,], ylim= c(0.055, 0.9))
+for(i in 2:30){
+  lines(Y_fd[i,],type='l',col=i)
+}
+lines(pt_mean, col = "black", lwd = 5)
+lines(pt_sd, col = "darkred", lwd = 5)
+legend(0,1.2, c("point-wise mu", "point-wise sd"),col=c("steelblue", "darkred"), lwd = 3) 
+```
+
+c. 
+
+```{r}
+#-- create upper and lower SE bouds
+SE_hat_U = fd(basisobj=basis)
+SE_hat_L = fd(basisobj=basis) 
+
+#-- use the formula in the course to compute the coefs
+SE_hat_U$coefs=2*pt_sd$coefs/sqrt(N) + pt_mean$coefs
+SE_hat_L$coefs= -2*pt_sd$coefs/sqrt(N) + pt_mean$coefs
+
+#-- plot results
+plot(pt_mean, lwd = 2)
+lines(SE_hat_L,col='darkred',lty=2)
+lines(SE_hat_U,col='darkred',lty=2)
+```
+
+d. 
+
+```{r}
+#-- Perform FPCA (four components) on the smoothed data
+Y_fpca = pca.fd(Y_fd, nharm = 10)
+
+#-- get variability levels of each PC
+par(mfrow = (c(1,2)))
+b = Y_fpca$varprop
+plot(b, type = "b", lwd = 2, 
+     col = "steelblue", 
+     xlab = "Number of principal components", 
+     ylab = "Variability explained", main = "Variability against number of FPC")
+
+#-- get cumulative variability
+c = cumsum(Y_fpca$varprop)
+plot(c, type = "b", lwd = 2, 
+     col = "steelblue", 
+     xlab = "Number of principal components", 
+     ylab = "Variability explained", main = "Variability against number of FPC")
+abline(h=0.9)
+abline(v=4, lty = 2)
+```
+
+Indeed, after performing the functional principal component analysis, it becomes clear that taking 4 components explains 90% of the variability. The first component explains about 68% and the second about 8% of the variability.
+
+```{r}
+#-- plotting the principal components
+plot(Y_fpca$harmonics, main = "First four Principal components")
+```
+
+e. 
+
+```{r}
+pen_basis = create.bspline.basis(c(1,M),nbasis=100,norder=4)
+loglam = seq(-3,-0.5,by=0.1)
+nlam = length(loglam)
+dfsave = numeric(nlam); names(dfsave) = loglam
+gcvsave = numeric(nlam); names(gcvsave) = loglam
+for (ilam in 1:nlam) {
+	lambda = 10^loglam[ilam]
+	fdParobj = fdPar(pen_basis, 2, lambda)
+	smoothlist = smooth.basis(1:M, t(Y),fdParobj)
+	dfsave[ilam] = smoothlist$df
+	gcvsave[ilam] = sum(smoothlist$gcv) # gcv for each station 
+}
+
+plot(loglam, gcvsave, type='b', lwd=2)
+lambda = 10^loglam[which.min(gcvsave)] # 10^-1.4
+
+heightPar = fdPar(pen_basis, 2, lambda)
+basis.penalized = smooth.basis(argvals = 1:M,t(Y),heightPar)
+```
+
+```{r}
+#-- smooth the data again using GCV smoothed basis
+muhat = mean.fd(Y_fd)
+plot(Y_fd)
+plot(basis.penalized)
+lines(muhat, lwd=6, col="black")
+```
+
+compared to the original curves smoothed via fixed number of B-splines, it is visible that penalizing the basis functions returns more noisy functions.
+
+f.
+
+```{r}
+regList=register.fd(yfd=Y_fd,dbglev=0)
+regY=regList$regfd 
+
+par(mfrow=c(1,2))
+plot(Y_fd, xlab="Time", ylab="Original", main="Original")
+lines(mean.fd(Y_fd),col="black",lwd=4)
+plot(regY,xlab="Time", ylab="Warped", main="Warped")
+lines(mean.fd(regY),col="black",lwd=4)
+```
+
+The above plots contain too many curves to be discern a significant difference. We will plot only 30 curves for each to study the effect of both methods in a clearer way
+
+```{r, fig.width=8, fig.height=8}
+par(mfrow = c(2,1))
+
+plot(Y_fd[1,], main = "Original", ylim= c(0.1, 0.85))
+for(i in 2:30){
+  lines(Y_fd[i,],type='l',col=i)
+}
+lines(pt_mean, col = "black", lwd = 5)
+
+plot(regY[1,],xlab="Time", ylab="Warped", main="Warped", ylim= c(0.1, 0.85))
+for(i in 2:30){
+  lines(regY[i,],type='l',col=i)
+}
+lines(mean.fd(regY),col="black",lwd=4)
+```
+
+We cannot say for sure that there is a difference between the original and the warped functions.
+
+g. 
+
+```{r}
+#-- performing FPCA on unregistered curves
+unreg.pca=pca.fd(basis.penalized$fd,nharm=10)
+cumsum(unreg.pca$varprop)
+
+#-- perform FPCA on registered
+reg.pca=pca.fd(regY,nharm=10)
+cumsum(reg.pca$varprop)
+
+plot(cumsum(reg.pca$varprop), ylim = c(0.5, 1), type='b', col="blue")
+lines(cumsum(unreg.pca$varprop), type = 'b', col='red')
+legend(7.5,0.6, c("Registered", "Unregistered"),col=c("blue", "red"), lwd=2) 
+abline(h=0.9)
+```
+
+The FPCA on the registered curves returns components that capture more variance in the data. In contrast, we see that the unregistered FPCA yeilds slightly lower percentages of variance explained. This is an indication that the registration helps capture more variance in the data upon performing functional principal component analysis.
+
+h.
+
+Registering the curves helped capturing more variability in the data in fiewer components. Using only 4 components on the registered curves, we were able to capture 90% of variability compared to 6 components to achieve the same level in un-registered curves. On the other hand, we were not able to decide visually if registration made any difference by studying the mean curve by itself. In some cases, due to the high number of curves in the data, the mean function does not show any significant changes in the data (i.e. the plot in question f). Therefore, registering the data was indeed useful in this case.
+
+i.
+
+```{r}
+library(CompQuadForm)
+
+#-- get point wise mean of registered curves
+mu_reg = mean.fd(regY)
+
+#-- norm approach
+Test_norm = N*inprod(mu_reg,mu_reg)
+reg_pc = pca.fd(regY,nharm=10)
+lambda_hat=reg_pc$values
+sapply(imhof(Test_norm,lambda=reg_pc$values), function(u) round(u,4))
+```
+
+We observe that the p-value is lower than 0.05 which leads us to reject the null hypothesis that the mean function is 0.
+
+```{r}
+#-- pc approach
+Pvals = numeric(10)
+for(p in 1:10){
+	PCs<-reg_pc$harmonics[1:p]
+	Test_PC<-N*sum(inprod(muhat,PCs)^2/reg_pc$values[1:p])
+	Pvals[p] = pchisq(Test_PC,df = p, lower.tail=FALSE)
+}
+Pvals
+```
+
+The results above show that for all components the p-value is 0 which means that we can reject, with high confidence, the null hypothesis that the mean function is 0.
