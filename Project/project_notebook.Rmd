@@ -1,0 +1,97 @@
+---
+title: |
+  | \vspace{8cm} \textbf{FDA Project}
+author:
+- Bassel MASRI
+- Cyril DEVEDEUX
+date: "2/14/2021"
+output:
+  pdf_document:
+    number_sections: yes
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Introduction
+
+# Defining the data and the problem
+
+Moisture (fds): This data set consists of near-infrared reflectance spectra of 100 wheat samples, measured in 2 nm intervals from 1100 to 2500nm, and an associated response variables, the samples’ moisture content.
+
+# Approach and results
+
+## Exploratory data analysis
+
+Include FPCA
+
+## Modeling
+
+Modeling without FPCA
+modeling with FPCA
+
+# Conclusion
+
+
+```{r, include=FALSE}
+#-- load libraries
+rm(list=ls())
+library(fda)
+library(refund)
+library(tidyverse)
+if (!require(fds)) install.packages("fds")
+```
+
+```{r, fig.width=12, fig.height=5}
+#-- load data
+data("Moisturespectrum")
+
+#-- load response variable
+data("Moisturevalues")
+Y = Moisturevalues
+X = Moisturespectrum
+
+#-- plot the data
+par(mfrow=c(1,2))
+plot(X, col = "grey")
+plot(Y, xlab="Sample",ylab="Moisture content", pch=15)
+```
+
+```{r, fig.width=12, fig.height=5}
+mat = X$y
+
+N = dim(mat)[1]
+M = dim(mat)[2]
+
+#-- set number of basis and generate it
+basis = create.bspline.basis(c(1,M), nbasis = 25, norder = 4)
+
+#-- plot the generated basis
+mat_fd = Data2fd(1:M,t(mat),basis)
+plot(mat_fd, lty = 1, col = "grey")
+```
+
+```{r}
+#-- Ploting the first 30 smoothed trajectories with point-wise mean and sd
+plot(mat_fd[1,], ylim = c(0.2,0.5))
+```
+
+TO DO EDA
+
+Point wise mean
+Point wise std
+On the same plot, show upper bound and lower bound and pointwise mean along with the smoothed data.
+Smoothing with GCV , show plot of lambda, smooth the data with best lambda, plot the curvres again
+Repeat mean, std and confidence intervals
+FPCA, plot the first 4 PCA's, see how much components we need to get 90% variance.
+
+TO DO Modeling
+Maybe a test train split ? (bonus)
+Scalar on function regression
+Evaluate model R2
+
+Maybe scalar on function regression using FPCA (for later)
+
