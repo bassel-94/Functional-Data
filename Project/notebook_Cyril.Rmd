@@ -27,6 +27,7 @@ data("Moisturespectrum")
 data("Moisturevalues")
 Y = Moisturevalues
 X = Moisturespectrum
+names(X)
 
 #-- plot the data
 par(mfrow=c(1,2))
@@ -36,22 +37,132 @@ plot(Y, xlab="Sample",ylab="Moisture content", pch=15)
 
 ```{r, fig.width=12, fig.height=5}
 mat = X$y
+dim(mat)
 
-N = dim(mat)[1]
-M = dim(mat)[2]
+N = dim(mat)[1] # 701
+M = dim(mat)[2] #100
 
 #-- set number of basis and generate it
-basis = create.bspline.basis(c(1,M), nbasis = 25, norder = 4)
+B25.basis = create.bspline.basis(rangeval = c(1,M),breaks = 1:M)
 
 #-- plot the generated basis
-mat_fd = Data2fd(1:M,t(mat),basis)
+mat_fd = Data2fd(1:M,t(mat),B25.basis)
 plot(mat_fd, lty = 1, col = "grey")
 ```
 
-```{r}
-#-- Ploting the first smoothed trajectory (just to see what it looks like)
-plot(mat_fd[1,], ylim = c(0.2,0.5))
+
+*** CYRIL***
+
+We compute the pointwise mean and standard deviation and we add them to the plot.
+
+```{r,fig.height=5,fig.width=8}
+# Pointwise mean
+muhat <- mean.fd(mat_fd)
+
+# Standard deviation
+sdhat <- sd.fd(mat_fd)
+
+# We add them to the plot
+plot(mat_fd, lty = 1, ylim=c(0,1.5),col = "grey")
+lines(muhat,lwd = 4, col = "black")
+lines(sdhat,lwd = 4, col = "red")
+legend(82,1.5,c("mean","sd"), col = c("black","red"), lwd=7)
 ```
+The mean function is ploted in black whereas the the standard deviation is ploted in red.
+
+Now, we compute and plot the 95% confidence interval.
+```{r,fig.height=5,fig.width=8}
+
+# Confidence interval 95 %
+plot(mat_fd, lty = 1, ylim=c(0,1.5),col = "grey")
+lines(muhat,lwd = 4, col = "black")
+lines(muhat+1.96*sdhat,lwd=2,lty = 2,col = "green")
+lines(muhat-1.96*sdhat,lwd=2,lty = 2,col = "green")
+legend(80,1.5,c("mean","95% CI"), col = c("black","green"), lwd=7)
+```
+The mean function is ploted in black.
+The 95% confidence interval is indicated in green.
+
+We compute the sample covariance function.
+and let's have a look on the perspective plot and the contour plot.
+
+```{r}
+Chat <- var.fd(mat_fd)
+class(Chat) # we check that it's a bivariate functional data object.
+eval_times<-seq(1,100,length=100) ### A REVOIR AVEC BASSEL ###
+Chat_matrix<-eval.bifd(eval_times,eval_times,Chat)
+
+persp(eval_times,eval_times,Chat_matrix,xlab="s",ylab="t",zlab="c(s,t)")
+contour(eval_times,eval_times,Chat_matrix,lwd=2)
+```
+
+Smoothing with GCV.
+
+We want to find the optimal lambda.
+
+```{r}
+
+loglam = seq(-10,10,by=0.1)
+nlam = length(loglam)
+
+dfsave = numeric(nlam); names(dfsave) = loglam
+gcvsave = numeric(nlam); names(gcvsave) = loglam
+
+for (ilam in 1:nlam) {
+	cat(paste('log10 lambda =',loglam[ilam],'\n'))
+	lambda = 10^loglam[ilam]
+	fdParobj = fdPar(fdobj = B25.basis, Lfdobj = int2Lfd(2), lambda=lambda)
+	smoothlist = smooth.basis(y=mat,fdParobj=fdParobj) ### A VOIR AVEC BASSEL
+	dfsave[ilam] = smoothlist$df
+	gcvsave[ilam] = sum(smoothlist$gcv) 
+}
+
+plot(loglam,gcvsave,type='b')
+title("Results of GCV")
+
+# We choose the optimal lambda
+optilambda<-10^(loglam[which.min(gcvsave)])
+optilambda
+
+```
+We smooth the data using lambda that minimises the gcv
+```{r}
+
+fdParobj = fdPar(fdobj = B25.basis, Lfdobj = int2Lfd(2),lambda=optilambda)
+result.fd = smooth.basis(y=mat,fdParobj=fdParobj)$fd
+
+plot(result.fd)
+
+```
+We compute and plot mean and SD after smoothing.
+
+```{r}
+# Pointwise mean
+mean.result.fd = mean.fd(result.fd)
+
+# Standard deviation
+sd.result.fd = std.fd(result.fd)
+
+# We add them to the plot
+plot(result.fd, lty = 1, ylim=c(0,1.5),col = "grey")
+lines(mean.result.fd,lwd = 4, col = "black")
+lines(sd.result.fd,lwd = 4, col = "red")
+legend(82,1.5,c("mean","sd"), col = c("black","red"), lwd=7)
+
+```
+We compute and plot 95 % CI.
+
+```{r}
+# Confidence interval 95 %
+plot(result.fd, lty = 1, ylim=c(0,1.5),col = "grey")
+lines(mean.result.fd,lwd = 4, col = "black")
+lines(mean.result.fd+1.96*sd.result.fd,lwd=2,lty = 2,col = "green")
+lines(mean.result.fd-1.96*sd.result.fd,lwd=2,lty = 2,col = "green")
+legend(80,1.5,c("mean","95% CI"), col = c("black","green"), lwd=7)
+
+```
+
+
 
 
 TO DO EDA
