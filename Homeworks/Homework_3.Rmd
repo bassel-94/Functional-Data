@@ -1,0 +1,279 @@
+---
+title: "Homework 2 assignment"
+author: "Bassel MASRI"
+date: "1/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+rm(list=ls())
+library(fda)
+library(refund)
+library(fds)
+```
+
+## 1. Scalar on function regression
+
+Given that
+$$
+Y = \int \beta(t) X(t) dt + \varepsilon,
+$$
+
+Show that 
+
+$$
+c_{XY}(t) = E[X(t)Y] = \int c_X(t,s) \beta(s) ds
+$$
+
+By definition, we have
+
+$$
+E[X(t)Y] = E  \left[ X(t) \int \beta(s)X(s)ds + X(t)\varepsilon \right]
+$$
+
+Since $t$ and $s$ are independent, we can rewrite the above expression as follows 
+
+$$
+\begin{align*}
+E[X(t)Y]      &= E  \left[ \int X(t) \beta(s)X(s)ds + X(t)\varepsilon \right] \\
+              &= E \left[  \int X(t) \beta(s)X(s)ds \right] + E \left[ X(t)\varepsilon \right]
+\end{align*}
+$$
+
+We also know that $X(t)$ and $\varepsilon$ are independent, which leads us to 
+
+$$
+\begin{align*}
+E[X(t)Y]  &= E \left[  \int X(t) \beta(s)X(s)ds \right] + E \left[ X(t) \right] E \left[\varepsilon \right] \\
+          &= E \left[  \int X(t) \beta(s)X(s)ds \right] + 0
+\end{align*}
+$$
+
+By Fubini's theorem, we can write the following 
+
+$$
+\begin{align*}
+c_{XY}(t) &= \int E \left[ X(t) \beta(s) X(s) \right] ds \\
+          &= \int E [X(t)X(s) ] \beta(s) ds \\
+          &= \int c_X(t,s) \beta(s) ds
+\end{align*}
+$$
+
+## 2. Gasoline dataset
+
+a. Load and plot the data
+
+```{r}
+data(gasoline)
+dim(gasoline)
+plot(gasoline$octane,xlab="Gasoline sample", ylab="Octane rating", pch=15)
+par(ps=12, cex=1,cex.lab=1.7,cex.axis=1.4, cex.main=1.7, cex.sub=1, mar=c(4.25,4.5,1,1))
+plot.ts(gasoline$NIR[1,], lw=2, xlab="Wavelength", ylab="Spectrum")
+plot.ts(gasoline$NIR[2,]-gasoline$NIR[1,], lw=2, lty=1, xlab="Wavelength", ylab="Difference")
+lines(gasoline$NIR[5,]-gasoline$NIR[1,], lw=2, lty=2, xlab="Wavelength", ylab="Difference")
+```
+
+b. Fit a Penalized Functional Regression model (pfr) using the functional prinipal components
+
+```{r}
+#-- Get the target variable of octane ratings
+Y = gasoline$octane
+
+#-- Get te spectra curves
+X = gasoline$NIR
+
+#-- fit model
+model.fpcr = pfr(Y~fpc(X))
+```
+
+c. Plot the coefficient functions
+
+We can use directly the plot function on the model which gives the following
+
+```{r}
+#-- plot fit 
+plot(model.fpcr)
+```
+
+Or we can do it manually by computing the confidence interval and the coefficients from the function
+
+```{r}
+#-- get conf interval and coef
+model.fpcr.se = coef(model.fpcr,n=401)$se
+model.fpcr.coef = coef(model.fpcr,n=401)$value
+
+#-- get 95% confidence interval for the coef
+IC_max = model.fpcr.coef+1.96*model.fpcr.se
+IC_min = model.fpcr.coef-1.96*model.fpcr.se
+
+#-- plot results
+grid=seq(900,by=2,length.out = 401)
+plot(grid,model.fpcr.coef,type='l',ylim=c(-2500,2500),col='blue',xlab="Wavelength",ylab="value")
+lines(grid,IC_max,lty=2,col='darkred')
+lines(grid,IC_min,lty=2,col='darkred')
+title("Coefficients with 95% confidence interval using FPCR")
+```
+
+d. Computing $R^2$ to get an idea about goodness of fit
+
+```{r}
+cat("R squared score is",summary(model.fpcr)$r.sq)
+```
+
+e. Repeat steps in c. and d. using a basis expansion approach
+
+
+We will use a basis expansion of 15 B-splines of order 4 :
+
+```{r}
+#-- fit model
+model.bpcr = pfr(formula = Y~lf(X, bs="cr", k=15, fx = TRUE))
+
+#-- get 95% confidence interval for the coef
+model.bpcr.se=coef(model.bpcr,n=401)$se
+model.bpcr.coef=coef(model.bpcr,n=401)$value
+
+#-- Definition of coefficient intervals
+IC_max=model.bpcr.coef+1.96*model.bpcr.se
+IC_min=model.bpcr.coef-1.96*model.bpcr.se
+
+#-- plot results
+plot(grid,model.bpcr.coef,type='l',col='blue',ylim=c(-10000,10000),xlab="Wavelength",ylab="value")
+lines(grid,IC_max,lty=2,col='red')
+lines(grid,IC_min,lty=2,col='red')
+title("Coefficients with 95% confidence interval using basis expansion")
+
+#-- computing R squared
+cat("R squared score is",summary(model.bpcr)$r.sq)
+```
+
+The $R^2$ score is almost exactly the same whether we use functional principal components to regress on the response variable or the basis expansion regression. This is an indication that the spectral curves are so close to each other we can get an accurate regression estimate using only a few components. A goodness of fit of above 98% remains a high but biased score. Another approach we could take in order to analyze the goodness of fit is to split the data into test-train sets.
+
+## 3. The medfly data
+
+a. Load and smooth the data using B-splines
+
+```{r}
+#-- load data
+load("medfly.Rdata")
+
+#-- Create bspline basis 
+my.basis = create.bspline.basis(rangeval = c(0,25),breaks = 0:25)
+
+#-- Choice of the penalty by GCV
+loglam = seq(-3,5,by=0.2)
+gcv = rep(NA,length(loglam))
+names(gcv) = paste0("loglam ",loglam)
+
+for(i in 1:length(loglam)){
+  lam = 10^(loglam[i])
+  fdParobj = fdPar(fdobj = my.basis,Lfdobj = int2Lfd(2),lambda = lam)
+  smoothlist = smooth.basis(argvals = 0:25,y=medfly$eggcount,fdParobj = fdParobj)
+  gcv[i] = sum(smoothlist$gcv)
+}
+
+#-- plot GCV curve of loglam
+plot(loglam,gcv,type='b')
+title("Results of GCV")
+```
+
+Now we smooth the data and plot the curves
+
+```{r}
+#-- get minimum lambda of GCV
+lam = 10^(loglam[which.min(gcv)])
+
+#-- smooth data with second derivative as the roughness penalty
+fdParobj = fdPar(fdobj = my.basis,Lfdobj = int2Lfd(2),lambda =lam)
+eggcount.fd = smooth.basis(argvals = 0:25,y=medfly$eggcount,fdParobj =fdParobj)
+plot(eggcount.fd)
+```
+
+b. Functional principal component analysis
+
+Below we compute and plot the cumulative proportion of variance explained using 4 principal components.
+
+```{r}
+#-- perform pca
+eggcount.pca = pca.fd(eggcount.fd$fd,nharm = 4)
+
+#-- get proportion of variance explained
+a = eggcount.pca$varprop
+
+#-- plot cumulative variance explained
+c = cumsum(eggcount.pca$varprop)
+plot(c, type = "b", lwd = 3,
+     col = "steelblue", 
+     main = "Proportion of variance explained",
+     xlab = "Components",
+     ylab = "% variance explaines")
+```
+
+```{r}
+#-- print cumulative variance explained
+p = t(round(c,5))
+row.names(p) = "% var."
+colnames(p) = c("Component 1", "Component 2", "Component 3", "Component 4")
+knitr::kable(p)
+```
+
+We need two components to explain 99.9% of the variability.
+
+We can visualize the principal components as follows 
+
+```{r}
+plot(eggcount.pca$harmonics[1:3])
+title("Principal components")
+```
+
+## c. Functional linear regression
+
+```{r}
+library(fda.usc)
+
+#-- load the target
+Y = medfly$lifetime
+
+#-- fit a regression model
+medfly.fpc.reg = fregre.pc.cv(eggcount.fd$fd,Y,kmax=10)
+
+#-- get summary
+summary(medfly.fpc.reg$fregre.pc)
+```
+
+```{r}
+#-- plot the coefficients
+plot(medfly.fpc.reg$fregre.pc$beta.est)
+```
+
+We notice from the diagnostic plots that the linear regression assumptions are confirmed. The residuals do not show any particilar structure and are norammly distributed with mean 0. The predicted vs observed values show a nice linear trend with a high 99% $R^2$ score. Note that this is a biased score since we use the same training data to predict values and not a separate test data.
+
+## d. Optimal oefficient number
+
+```{r}
+medfly.fpc.reg$pc.opt
+```
+
+The optimal number of FPC chosen is 6.
+
+## e. $R^2$ score
+
+```{r}
+cat("R2 score is",medfly.fpc.reg$fregre.pc$r2)
+```
+
+## f. Residual diagnostics
+
+```{r}
+hist(medfly.fpc.reg$fregre.pc$residuals,xlab="residuals",main="Histogram of the residuals",breaks = 20)
+plot(medfly.fpc.reg$fregre.pc$fitted.values,medfly.fpc.reg$fregre.pc$residuals,ylab="residuals",
+     xlab="fitted values",main = "Residuals vs Fitted values")
+abline(h=0,lty=2,col='red')
+```
+
+The histogram of the residuals shows a Gaussian curve centered around 0 which indicates that the assumptions of a linear model are met. In order to determine whether the curve can be a perfect bell curve we need more data. The scatter plot of the residuals against the fitted values further confirms that there is no structure to the residuals. Therefore, we can safely say that the model was able to describe the behavior of the data accurately. As indicated before, to make sure that the estimators are unbiased, model evaluation should be based on a separate test set which the model has not seen before.
+
