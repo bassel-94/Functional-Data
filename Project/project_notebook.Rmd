@@ -8,8 +8,6 @@ date: "2/14/2021"
 output:
   pdf_document:
     number_sections: yes
-  html_document:
-    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -38,8 +36,6 @@ $$
 g : L^2 \rightarrow \mathbb{R} \text{ such that } Y = g(X)
 $$
 
-** add scalar on function regression formula in lab4 **
-
 Once the regression function is defined, it becomes easy to determine an approximate moisture level of a wheat grain sample from its spectral curve.
 
 ## The data
@@ -53,6 +49,7 @@ library(fda)
 library(refund)
 library(tidyverse)
 if (!require(fds)) install.packages("fds")
+suppressPackageStartupMessages(library(fda))
 ```
 
 ```{r data, fig.width=10, fig.height=4, fig.cap="\\label{fig:data}NIR spectroscopy of 100 wheat samples (on the left) and their moisture levels (on the right)"}
@@ -109,7 +106,7 @@ B25.basis = create.bspline.basis(rangeval = c(1,M), norder = 4, nbasis = 25)
 mat_fd = Data2fd(1:M,t(mat),B25.basis)
 ```
 
-```{r smooth, fig.width=6, fig.height=4, fig.cap="\\label{fig:smooth}Smoothed curves using 25 B splines", fig.align='center'}
+```{r smooth, fig.width=5, fig.height=3.5, fig.cap="\\label{fig:smooth}Smoothed curves using 25 B splines", fig.align='center', message=FALSE}
 # Pointwise mean
 muhat <- mean.fd(mat_fd)
 
@@ -117,49 +114,50 @@ muhat <- mean.fd(mat_fd)
 sdhat <- sd.fd(mat_fd)
 
 # Confidence interval 95 %
-plot(mat_fd, lty = 1, ylim=c(0,1.5),col = "grey",cex.lab = 0.7,cex.axis = 0.7)
-lines(muhat,lwd = 4, col = "black")
-lines(muhat+1.96*sdhat,lwd=2,lty = 2,col = "green")
-lines(muhat-1.96*sdhat,lwd=2,lty = 2,col = "green")
+invisible(plot(mat_fd, lty = 1, ylim=c(0,1.5),col = "grey",cex.lab = 0.7,cex.axis = 0.7))
+lines(muhat,lwd = 2, col = "black")
+lines(muhat+1.96*sdhat,lwd=1,lty = 2,col = "green")
+lines(muhat-1.96*sdhat,lwd=1,lty = 2,col = "green")
 #lines(sdhat,lwd = 4, col = "red")
-legend(84.5,1.55,c("mean","95% CI"), col = c("black","green"), lwd=4, cex = 0.7)
+legend(80,1.55,c("mean","95% CI"), col = c("black","green"), lwd=2, cex = 0.7)
 ```
 
-Interestingly, the smoothed data follows the classic two standard deviation rule surprisingly well with nearly all of the curves falling between the green lines. Figure \ref{fig:sd} show the point-wise sample standard deviation which gives us an idea about the variability of curves at any point $t$. Indeed, we notice more variability in the early samples than in the last samples. This may be explained by the fact that the moisture level in those samples are quite different.
+Interestingly, the smoothed data follows the classic two standard deviation rule surprisingly well with nearly all of the curves falling between the green lines. Figure \ref{fig:sd} shows the point-wise sample standard deviation which gives us an idea about the variability of curves at any point $t$. Indeed, we notice more variability in the early samples than in the last samples. This may be explained by the fact that the moisture level in those samples are quite different.
 
-```{r sd, fig.width=6, fig.height=4, fig.cap="\\label{fig:sd}Standard deviation of the curves", fig.align='center'}
-plot(sdhat,lwd = 4, col = "red",cex.lab = 0.7,cex.axis = 0.7)
+```{r sd, fig.width=5, fig.height=3.5, fig.cap="\\label{fig:sd}Standard deviation of the curves", fig.align='center'}
+invisible(plot(sdhat,lwd = 2, col = "red",cex.lab = 0.7,cex.axis = 0.7))
 ```
 
 The point-wise sample standard deviation gives no information on how the values of the curves at point $t$ relate to those at point $s$. Therefore we compute the sample covariance function $\hat{c}(t,s)$ and we plot its perspective and its contour plot as seen in Figure \ref{fig:cov} and Figure \ref{fig:cont}
 
-```{r cov, fig.width=7, fig.height=5, fig.cap="\\label{fig:cov}Perspective plot of the covariance function", fig.align='center'}
+```{r cov, fig.width=6, fig.height=5, fig.cap="\\label{fig:cov}Perspective plot of the covariance function", fig.align='center'}
 Chat <- var.fd(mat_fd)
 #class(Chat) # we check that it's a bivariate functional data object.
 eval_times<-seq(1,100,length=90)
 Chat_matrix<-eval.bifd(eval_times,eval_times,Chat)
 
-persp(eval_times,eval_times,Chat_matrix, theta = -45,phi =30, ticktype = "detailed", expand = 0.5, cex.lab = 0.7,cex.axis = 0.7)
+persp(eval_times,eval_times,Chat_matrix, 
+      theta = -45,phi = 30, ticktype = "detailed", 
+      expand = 0.5, cex.lab = 0.7, cex.axis = 0.5, 
+      xlab="s", ylab="t", zlab="c(s,t)")
 ```
 
-```{r cont, fig.width=5, fig.height=5, fig.cap="\\label{fig:cont}Contour plot of the covariance function", fig.align='center'}
+```{r cont, fig.width=4, fig.height=4, fig.cap="\\label{fig:cont}Contour plot of the covariance function", fig.align='center'}
 library(plotrix)
-contour(eval_times, eval_times, Chat_matrix, lwd=2, cex.lab = 0.7,cex.axis = 0.7)
-draw.circle(10,10,10, border = "red", lty = 3, lwd = 4)
-?draw.circle
+contour(eval_times, eval_times, Chat_matrix, 
+        lwd=2, cex.lab = 0.7,cex.axis = 0.7)
+draw.circle(10,10,10, border = "red", lty = 3, lwd = 2)
 ```
 
 The 3D perspective plot shows that the variation in the spectrum is higher in the first samples. Indeed, this is confirmed in the contour plot in Figure \ref{fig:cont} in the highlighted red circle.
 
 ### Penalized smoothing
 
-Typically, when the raw data curves exhibit a substantial level of noise, the functional objects constructed using manual basis expansion smoothing (i.e $M=25$ in our case) will inherit this variability, and thus resulting in *wiggly* curves. To avoid amplifying said variability, we will perform smoothing using a penalized approach.  
-
-**Maybe add a formula that explaines PSS**
+Typically, when the raw data curves exhibit a substantial level of noise, the functional objects constructed using manual basis expansion smoothing (i.e $M=25$ in our case) will inherit this variability, and thus resulting in *wiggly* curves. To avoid amplifying said variability, we will perform smoothing using a penalized approach.
 
 To choose the tuning parameter $\lambda$, generalized cross-validation (GCV) is employed. The aim is to minimize the penalized sum of squares with respect to the tuning parameter $\lambda$.
 
-```{r gcv, fig.width=6, fig.height=4, fig.cap="\\label{fig:gcv}Values of the tuning parameter using generalized cross validation", fig.align='center'}
+```{r gcv, fig.width=5, fig.height=3.5, fig.cap="\\label{fig:gcv}Values of the tuning parameter using generalized cross validation", fig.align='center'}
 pen_basis = create.bspline.basis(c(1,M),nbasis=150,norder=4)
 loglam = seq(-1,4,by=0.2)
 nlam = length(loglam)
@@ -171,20 +169,20 @@ for (ilam in 1:nlam) {
 	#cat(paste('log10 lambda =',loglam[ilam],'\n'))
 	lambda = 10^loglam[ilam]
 	fdParobj = fdPar(fdobj = pen_basis, Lfdobj = int2Lfd(2), lambda=lambda)
-	smoothlist = smooth.basis(y=t(mat),fdParobj=fdParobj) ### A VOIR AVEC BASSEL
+	smoothlist = smooth.basis(y=t(mat),fdParobj=fdParobj) 
 	dfsave[ilam] = smoothlist$df
 	gcvsave[ilam] = sum(smoothlist$gcv) 
 }
 
-plot(loglam,gcvsave,type='b', lwd=2, 
-     ylab = "generalized cross validation error", 
+plot(loglam,gcvsave,type='b', lwd=1.5, 
+     ylab = "generalized CV error", 
      xlab = "log lambda", cex.lab = 0.7,
-     cex.axis = 0.7, cex = 0.7)
+     cex.axis = 0.7, cex = 0.5)
 ```
 
 Generaized cross validation shows an optimal smoothing parameter $\lambda = 39.8$ when choosing a range for $\lambda$ between $[10^{-1}, 10^4]$ and a number of basis of $150$ knowing that we only have $100$ samples. The cross validation curve with respect to the values of $\lambda$ is shown in Figure \ref{fig:gcv}. Using the minimum value of $\lambda$, we penalize the basis expansion and repeat the smoothing task which yields the curves in the bottom plot in Figure \ref{fig:pen}.
 
-```{r pen, fig.width=6, fig.height=8, fig.cap="\\label{fig:pen}Smoothed curves without penalization (top) vs with penalization (bottom)", fig.align='center'}
+```{r pen, fig.width=8, fig.height=3.5, fig.cap="\\label{fig:pen}Smoothed curves without penalization (right) vs with penalization (left)", fig.align='center'}
 optilambda<-10^(loglam[which.min(gcvsave)])
 fdParobj = fdPar(fdobj = pen_basis, Lfdobj = int2Lfd(2),lambda=optilambda)
 result.fd = smooth.basis(y=t(mat),fdParobj=fdParobj)$fd
@@ -195,24 +193,19 @@ mean.result.fd = mean.fd(result.fd)
 # Standard deviation
 sd.result.fd = std.fd(result.fd)
 
-
-par(mfrow = c(2,1))
+par(mfrow = c(1,2))
 
 #-- plot with penalization
-plot(result.fd, col = "grey", lty = 1, cex.lab = 0.7, cex.axis = 0.7, ylim = c(0.3, 1.25))
-lines(mean.result.fd,lwd = 4, col = "black")
+invisible(plot(result.fd, col = "grey", lty = 1, cex.lab = 0.7, cex.axis = 0.7, ylim = c(0.3, 1.25)))
+lines(mean.result.fd,lwd = 2, col = "black")
 lines(mean.result.fd+1.96*sd.result.fd,lwd=2,lty = 2,col = "green")
 lines(mean.result.fd-1.96*sd.result.fd,lwd=2,lty = 2,col = "green")
-legend(84,1.27,c("mean","95% CI"), col = c("black","green"), lwd=3, cex = 0.7)
-
 
 #-- plot without penalization
-plot(mat_fd, lty = 1, ylim = c(0.3, 1.25),col = "grey",cex.lab = 0.7,cex.axis = 0.7)
-lines(muhat,lwd = 4, col = "black")
-lines(muhat+1.96*sdhat,lwd=2,lty = 2,col = "green")
-lines(muhat-1.96*sdhat,lwd=2,lty = 2,col = "green")
-#lines(sdhat,lwd = 4, col = "red")
-legend(84.5,1.55,c("mean","95% CI"), col = c("black","green"), lwd=4, cex = 0.7)
+invisible(plot(mat_fd, lty = 1, ylim = c(0.3, 1.25),col = "grey",cex.lab = 0.7,cex.axis = 0.7))
+lines(muhat,lwd = 2, col = "black")
+lines(muhat+1.96*sdhat,lwd=1,lty = 2,col = "green")
+lines(muhat-1.96*sdhat,lwd=1,lty = 2, col = "green")
 ```
 
 Indeed, the results indicate that penalizing the smoothed basis reduces unnecessary variance significantly. The mean curve of the penalized smoothing seen in the top plot of Figure \ref{fig:pen} is much less noisy, showing peaks where the relative difference between the curves actually matters, and a smooth plateau where the difference is insignificant.
@@ -227,18 +220,18 @@ $$
 
 Where $p$ is a much smaller dimension than $M$ the number of basis. Note that $\xi_{nj}$ are the scores of the components. The principal component analysis will be applied on the functions produced after penalized smoothing observed in the top plot of Figure \ref{fig:pen}.
 
-```{r pca, fig.align="center", fig.width=6, fig.height=4, fig.cap="\\label{fig:pen}The percentage of variability explained vs FPCs on smoothed curves using penalization"}
+```{r pca, fig.align="center", fig.width=5, fig.height=3.5, fig.cap="\\label{fig:pen}The percentage of variability explained vs FPCs on smoothed curves using penalization"}
+#-- compute fpc
 result.fd.PCA = pca.fd(fdobj = result.fd, nharm = 5)
-result.fd.PCA$varprop
 mat_fd.PCA = pca.fd(fdobj = mat_fd, nharm = 5)
 
 #-- get cumulative variability
 c = cumsum(result.fd.PCA$varprop)
-plot(c, type = "b", lwd = 2, ylim = c(0.999,1),
+plot(c, type = "b", lwd = 1.5, ylim = c(0.999,1),
      col = "steelblue", 
-     xlab = "Number of principal components", 
-     ylab = "% of variability explained",
-     cex = 0.7, cex.lab = 0.7, cex.axis = 0.7)
+     xlab = "Number of PCs", 
+     ylab = "% var. explained",
+     cex = 0.5, cex.lab = 0.7, cex.axis = 0.7)
 ```
 
 ```{r}
@@ -249,27 +242,125 @@ knitr::kable(to_print, col.names = c("FPC1", "FPC2", "FPC3", "FPC4", "FPC5"), al
 
 Figure \ref{fig:pca} and Table \ref{tab:pctab} indicate that we are able to capture more than $99$% of the variability using only the first principal component. This is not surprising due to the fact that the plots are very similar and densly packed together as we can observe in the Figure \ref{fig:data}. 
 
-```{r harm, fig.align="center", fig.width=6, fig.height=4, fig.cap="\\label{fig:harm}plot of the first three FPCs"}
-plot(result.fd.PCA$harmonics[1:3], lwd =2 , cex.lab = 0.7, cex.axis = 0.7)
+```{r harm, fig.align="center", fig.width=4, fig.height=3.5, fig.cap="\\label{fig:harm}plot of the first three FPCs"}
+invisible(plot(result.fd.PCA$harmonics[1:3], lwd =1.5, cex.lab = 0.7, cex.axis = 0.7))
 ```
 
-We visualize the plot of the first 3 components in Figure \ref{fig:harm}. The first principal component (in black line) indicates that almost all samples' variance is captured equivalently. This is coherent with our pevious findings regarding curve similarities. Further exploratory analysis regarding curve registration is not necesarry, and therefore will not be explored in this study.
+We visualize the plot of the first 3 components in Figure \ref{fig:harm}. The first principal component (in black line) indicates that almost all samples' variance is captured equivalently. This is coherent with our pevious findings regarding curve similarities. There will be no need to further explore the curves for the next steps.
+\newpage
 
 ## Modeling
 
-As we can see in Figure \ref{fig:data}, the response variable is a scalar (i.e. a number on $\mathbb{R}$) which makes a scalar-on-function regression analysis an ideal candidate to solve the problem at hand.
+### Model definition and evaluation
 
-TO DO Modeling
-Maybe a test train split ? (bonus)
-Scalar on function regression
-Evaluate model R2
+Functional regression models can be identified using three main categories based on the nature of the target variable and the predictors. These categories are; scalar-on-function, function-on-scalar and function-on-function. Our exploratory data analysis has shown that the response variable is a scalar (i.e. a number on $\mathbb{R}$), which makes a scalar-on-function regression analysis an ideal candidate to solve the problem at hand [ref.3]. The regression model is defined as follows: 
 
-Maybe scalar on function regression using FPCA (for later)
+$$
+Y_i = \int \beta(s)X_i(s)ds + \varepsilon_i
+$$
+In order to evaluate the model, we will use the $R^2$ as our main metric. Further more, we will display the diagnostic plots and analyze them to further confirm (or reject) the model.
 
-Modeling without FPCA
-modeling with FPCA
+### Functional principal components regression
+
+We have seen in the previous section that it is possible to capture a high level of variance using only two functional principal components. Naturally, the easiest regression model we could fit is a Penalized Functional Regression (pfr) model on the principal components. We consider all 100 obervations as our training set and use the `R` command pfr to regress $Y$ on `fpc(X)` setting the number of components to 4.
+
+```{r, include=FALSE}
+#-- reload data and do test train split
+Y = Moisturevalues
+X = t(Moisturespectrum$y)
+
+#-- fit model
+model.1 = pfr(Y~fpc(X, ncomp = 4))
+cat("R squared score is",summary(model.1)$r.sq)
+```
+
+Upon fitting the model using the above-mentioned settings, we obtain a high 97.33% $R^2$ score. 
+Next, we produce a plot of the fitted coefficient along with its $95$% confidence interval in the Figure below.
+
+```{r d, fig.width=5, fig.height=3.5, fig.align='center'}
+#-- get conf interval and coef
+model.fpcr.se = coef(model.1,n=dim(X)[2])$se
+model.fpcr.coef = coef(model.1,n=dim(X)[2])$value
+
+#-- get 95% confidence interval for the coef
+IC_max = model.fpcr.coef+1.96*model.fpcr.se
+IC_min = model.fpcr.coef-1.96*model.fpcr.se
+
+#-- plot results
+grid=seq(from = 1100, to = 2500, length.out = dim(X)[2])
+plot(grid,model.fpcr.coef,type='l',
+     col='steelblue',xlab="Wavelength",
+     ylab="value", cex.lab = 0.7, cex.axis = 0.7)
+lines(grid,IC_max,lty=2,col='darkred')
+lines(grid,IC_min,lty=2,col='darkred')
+```
+
+The coefficient plot, however, does not give much insight on how well the model predicts values. Therefore, we produce a plot of fitted against observed values to visualize the linear trend and get a better idea on the goodness of fit. In addition, we plot the residuals to make sure that there is no structure in its distribution and that it is centered around $0$.
+
+```{r diag, fig.align="center", fig.width=7, fig.height=3, fig.cap="\\label{fig:diag}plot of residuals(left) and observed vs. predicted values (right)"}
+par(mfrow = c(1,2))
+plot(model.1$residuals, cex.lab = 0.7, cex.axis = 0.7, cex = 0.6, xlab = "Sample", ylab = "value")
+abline(h=0, col = "darkred")
+
+Y_hat = model.1$fitted.values
+plot(x = Y_hat, y=Y, cex.lab = 0.7, cex.axis = 0.7, cex = 0.6, xlab = "Predicted values", ylab = "Observed values")
+abline(c(0,1), col = "darkred")
+```
+
+The two diagnostic plots produced in Figure \ref{fig:diag} show a nice linear trend between predicted and observed percentages of moisture in the wheat grains. The residuals plot shows a random structure and centered around $0$ which further confirms a good fit.
+
+### Regression using basis expansion approach
+
+Regression using basis expansion approach works is by expanding the function $\beta$ using deterministic basis functions. This allows us to rewrite it as follows :
+
+$$
+\hat{\beta}(t) = \sum_{k=1}^K \hat{c}_k B_k(t)
+$$
+
+Then, we could integrate it in the original regression equation defined above to solve the problem. One disadvantage of such approach is that the basis functions $B_k$ and their number $K$ are highly subjective to the user. In our case, since we used a B-spline basis function as an expansion of the regressor functions, we will do the same here. For $k=15$, we get an $R^2$ score of $97.66$ which is highly similar to the one produced by the principal components regression. Interestingly, the plot below shows a significantly different coefficient curve compared to the one produced before. The confidence intervals are larger and the overall "roughness" of the curve is higher. This, again, is highly dependent on the user's choice of basis functions and their number.
+
+```{r, include=FALSE}
+#-- fit model
+model.2 = pfr(formula = Y~lf(X, bs="cr", k=15, fx = TRUE))
+
+#-- computing R squared
+cat("R squared score is",summary(model.2)$r.sq)
+```
+
+```{r c, fig.width=5, fig.height=3.5, fig.align='center'}
+#-- get 95% confidence interval for the coef
+model.bpcr.se=coef(model.2,n=dim(X)[2])$se
+model.bpcr.coef=coef(model.2,n=dim(X)[2])$value
+
+#-- Definition of coefficient intervals
+IC_max=model.bpcr.coef+1.96*model.bpcr.se
+IC_min=model.bpcr.coef-1.96*model.bpcr.se
+
+#-- plot results
+plot(grid,model.bpcr.coef,type='l',col='steelblue',
+     ylim=c(-5000,5000),xlab="Wavelength", ylab="value", 
+     cex.lab = 0.7, cex.axis = 0.7)
+lines(grid,IC_max,lty=2,col='darkred')
+lines(grid,IC_min,lty=2,col='darkred')
+```
+
+To compare the results with the previous section, we produce the same residuals plot and the observed vs. predicted values plot as seen in Figure \ref{fig:diag2}.
+
+```{r diag2, fig.align="center", fig.width=7, fig.height=3, fig.cap="\\label{fig:diag2}plot of residuals(left) and observed vs. predicted values (right)"}
+par(mfrow = c(1,2))
+plot(model.2$residuals, cex.lab = 0.7, cex.axis = 0.7, cex = 0.6, xlab = "Sample", ylab = "value")
+abline(h=0, col = "darkred")
+
+Y_hat = model.2$fitted.values
+plot(x = Y_hat, y=Y, cex.lab = 0.7, cex.axis = 0.7, cex = 0.6, xlab = "Predicted values", ylab = "Observed values")
+abline(c(0,1), col = "darkred")
+```
 
 # Conclusion
+
+A dimensionality reduction approach has always been useful to solve high dimensional multivariate data by projecting said data into a smaller, more managable feature space. From a functional data approach, this has proven to give accurate resutls when solving a scalar-on-function regression to solve the problem in this study which is to be able to detect the level of moisture in wheat grains from its NIR spectra. Indeed, based on its $R^2$ estimate, the problem at hand has been solved which might help reduce the cost of chemical analyses in future works. On the other hand, a basis expansion approach is more easily interpretable based on the fact that we do not project the data onto smaller dimensions. The downside, however, is that a careful choice of the basis expansion functions and their number has to be taken.
+
+Throughout this study, we have considered only the $R^2$ as our primary model selection metric. Future works could explore different (if not multiple) evaluation metrics such as Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE). In addition, the evaluation has been done on the same data we used to fit the model which makes it a biased estimator. In order to obtain an unbiased metric, one would have to perform a train-validation split which was beyond the scope of this study. 
 
 # References
 
@@ -278,3 +369,5 @@ link https://projectblue.blob.core.windows.net/media/Default/Imported%20Publicat
 
 [ref.2] Prediction of wheat quality parameters using near-infrared spectroscopy and artificial neural networks
 link https://www.researchgate.net/publication/227299821_Prediction_of_wheat_quality_parameters_using_near-infrared_spectroscopy_and_artificial_neural_networks
+
+[ref.3] Kokoszka, P. and Reimherr, M. (2017). Introduction to Functional Data Analysis. Chapman and Hall/CRC.

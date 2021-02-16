@@ -86,6 +86,10 @@ Y = gasoline$octane
 #-- Get te spectra curves
 X = gasoline$NIR
 
+X[1:10, 1:10]
+
+dim(X)
+length(Y)
 #-- fit model
 model.fpcr = pfr(Y~fpc(X))
 ```
