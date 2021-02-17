@@ -12,7 +12,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(dev = 'png')     #-- to reduce the size of the knitted pdf
+#knitr::opts_chunk$set(dev = 'png')     #-- to reduce the size of the knitted pdf
 ```
 
 \newpage
@@ -21,13 +21,13 @@ knitr::opts_chunk$set(dev = 'png')     #-- to reduce the size of the knitted pdf
 
 # Introduction
 
-Commercial wheat products such as flower are sold on a weight basis. The grains, however, contain a certain amount of water (i.e. moisture) on which there are restrictions about what moisture contents are allowed. Such restrictions have become a useful standard of identity for grain and flour to make sure that purchasers are buying what they expect. Mastering the level of moisture in wheat grains would highly affect its lifespam as well as how long it could be stored. According to a study on grain moisture [ref.1], the ideal moisutre of wheat should be between 13% and 17%  On the other hand, determining the level of moisture requires expensive lab equipement and a significant time to obtain accurate results. To overcome such expenses, some data-driven methods approaches have been developed to predict the flour quality parameters from near infrared reflectance (NIR) spectroscopy of the wheat grains [ref.2] through neural networks. Our main contribution throughout this study is to use a functional data approach to determine the level of moisture based on the NIR spectroscopy of the wheat grains.
+Commercial wheat products such as flower are sold on a weight basis. The grains, however, contain a certain amount of water (i.e. moisture) on which there are restrictions about what moisture contents are allowed. Such restrictions have become a useful standard of identity for grain and flour to make sure that purchasers are buying what they expect. Mastering the level of moisture in wheat grains would highly affect its lifespan as well as how long it could be stored. According to a study on grain moisture [ref.1], the ideal moisture of wheat should be between 13% and 17%  On the other hand, determining the level of moisture requires expensive lab equipment and a significant time to obtain accurate results. To overcome such expenses, some data-driven methods approaches have been developed to predict the flour quality parameters from near infrared reflectance (NIR) spectroscopy of the wheat grains [ref.2] through neural networks. Our main contribution throughout this study is to use a functional data approach to determine the level of moisture based on the NIR spectroscopy of the wheat grains.
 
 # The problem and the data
 
 ## Defining the research question
 
-The spectral curves of wheat grains is easy to obtain, while chemical analysis to determine the level of any molecular structure of the wheat (including moisutre) is time consuming and expensive. Therefore, to solve such problem, we will take a functional-data driven approach to regress on the moisture level of wheat grains using their equivalent NIR spectroscopy through a **scalar-on-functional regression analysis**.
+The spectral curves of wheat grains is easy to obtain, while chemical analysis to determine the level of any molecular structure of the wheat (including moisture) is time consuming and expensive. Therefore, to solve such problem, we will take a functional-data driven approach to regress on the moisture level of wheat grains using their equivalent NIR spectroscopy through a **scalar-on-functional regression analysis**.
 The purpose of regression analysis is to determine the form of dependence between the moisture level (i.e. the target variable $Y$) and the spectral curve (i.e. the functions $X$).
 
 Mathematically, we would like to find a functional $g$ such that 
@@ -77,7 +77,7 @@ knitr::kable(to_print, align = 'c',
              caption = "Table showing the first few rows and columns of the NIR spectra\\label{tab:sample}")
 ```
 
-Figure \ref{fig:data} shows the spectral curves of 100 wheat samples densly packed together on the left, and their corresponding moisture level in percentage on the right. Table \ref{tab:sample} displays the first few rows and columns of the NIR spectra values. The row names of the matrix represent the wavelength in nano-meters and the column names represent the sample number.
+Figure \ref{fig:data} shows the spectral curves of 100 wheat samples densely packed together on the left, and their corresponding moisture level in percentage on the right. Table \ref{tab:sample} displays the first few rows and columns of the NIR spectra values. The row names of the matrix represent the wavelength in nano-meters and the column names represent the sample number.
 
 # Approach and results
 
@@ -180,7 +180,7 @@ plot(loglam,gcvsave,type='b', lwd=1.5,
      cex.axis = 0.7, cex = 0.5)
 ```
 
-Generaized cross validation shows an optimal smoothing parameter $\lambda = 39.8$ when choosing a range for $\lambda$ between $[10^{-1}, 10^4]$ and a number of basis of $150$ knowing that we only have $100$ samples. The cross validation curve with respect to the values of $\lambda$ is shown in Figure \ref{fig:gcv}. Using the minimum value of $\lambda$, we penalize the basis expansion and repeat the smoothing task which yields the curves in the bottom plot in Figure \ref{fig:pen}.
+Generalized cross validation shows an optimal smoothing parameter $\lambda = 39.8$ when choosing a range for $\lambda$ between $[10^{-1}, 10^4]$ and a number of basis of $150$ knowing that we only have $100$ samples. The cross validation curve with respect to the values of $\lambda$ is shown in Figure \ref{fig:gcv}. Using the minimum value of $\lambda$, we penalize the basis expansion and repeat the smoothing task which yields the curves in the bottom plot in Figure \ref{fig:pen}.
 
 ```{r pen, fig.width=8, fig.height=3.5, fig.cap="\\label{fig:pen}Smoothed curves without penalization (right) vs with penalization (left)", fig.align='center'}
 optilambda<-10^(loglam[which.min(gcvsave)])
@@ -240,13 +240,13 @@ row.names(to_print) = "Cumulated Var."
 knitr::kable(to_print, col.names = c("FPC1", "FPC2", "FPC3", "FPC4", "FPC5"), align = 'c', caption = "Table showing the cumulated variance of the first 5 PC\\label{tab:pctab}")
 ```
 
-Figure \ref{fig:pca} and Table \ref{tab:pctab} indicate that we are able to capture more than $99$% of the variability using only the first principal component. This is not surprising due to the fact that the plots are very similar and densly packed together as we can observe in the Figure \ref{fig:data}. 
+Figure \ref{fig:pca} and Table \ref{tab:pctab} indicate that we are able to capture more than $99$% of the variability using only the first principal component. This is not surprising due to the fact that the plots are very similar and densely packed together as we can observe in the Figure \ref{fig:data}. 
 
 ```{r harm, fig.align="center", fig.width=4, fig.height=3.5, fig.cap="\\label{fig:harm}plot of the first three FPCs"}
 invisible(plot(result.fd.PCA$harmonics[1:3], lwd =1.5, cex.lab = 0.7, cex.axis = 0.7))
 ```
 
-We visualize the plot of the first 3 components in Figure \ref{fig:harm}. The first principal component (in black line) indicates that almost all samples' variance is captured equivalently. This is coherent with our pevious findings regarding curve similarities. There will be no need to further explore the curves for the next steps.
+We visualize the plot of the first 3 components in Figure \ref{fig:harm}. The first principal component (in black line) indicates that almost all samples' variance is captured equivalently. This is coherent with our previous findings regarding curve similarities. There will be no need to further explore the curves for the next steps.
 \newpage
 
 ## Modeling
@@ -262,7 +262,7 @@ In order to evaluate the model, we will use the $R^2$ as our main metric. Furthe
 
 ### Functional principal components regression
 
-We have seen in the previous section that it is possible to capture a high level of variance using only two functional principal components. Naturally, the easiest regression model we could fit is a Penalized Functional Regression (pfr) model on the principal components. We consider all 100 obervations as our training set and use the `R` command pfr to regress $Y$ on `fpc(X)` setting the number of components to 4.
+We have seen in the previous section that it is possible to capture a high level of variance using only two functional principal components. Naturally, the easiest regression model we could fit is a Penalized Functional Regression (pfr) model on the principal components. We consider all 100 observations as our training set and use the `R` command pfr to regress $Y$ on `fpc(X)` setting the number of components to 4.
 
 ```{r, include=FALSE}
 #-- reload data and do test train split
@@ -358,7 +358,7 @@ abline(c(0,1), col = "darkred")
 
 # Conclusion
 
-A dimensionality reduction approach has always been useful to solve high dimensional multivariate data by projecting said data into a smaller, more managable feature space. From a functional data approach, this has proven to give accurate resutls when solving a scalar-on-function regression to solve the problem in this study which is to be able to detect the level of moisture in wheat grains from its NIR spectra. Indeed, based on its $R^2$ estimate, the problem at hand has been solved which might help reduce the cost of chemical analyses in future works. On the other hand, a basis expansion approach is more easily interpretable based on the fact that we do not project the data onto smaller dimensions. The downside, however, is that a careful choice of the basis expansion functions and their number has to be taken.
+A dimensionality reduction approach has always been useful to solve high dimensional multivariate data by projecting it onto a smaller, more manageable feature space. From a functional data approach, this has proven to give accurate results when solving a scalar-on-function regression to solve the problem in this study which is to be able to detect the level of moisture in wheat grains from its NIR spectra. Indeed, based on its $R^2$ estimate, the problem at hand has been solved which might help reduce the cost of chemical analyses in future works. On the other hand, a regression using basis expansion approach is more easily interpretable based on the fact that we do not reduce the dimension of the data. The downside, however, is that a careful choice of the basis expansion functions and their number has to be taken.
 
 Throughout this study, we have considered only the $R^2$ as our primary model selection metric. Future works could explore different (if not multiple) evaluation metrics such as Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE). In addition, the evaluation has been done on the same data we used to fit the model which makes it a biased estimator. In order to obtain an unbiased metric, one would have to perform a train-validation split which was beyond the scope of this study. 
 
